@@ -233,7 +233,7 @@ class Mailbox(models.Model):
         msg.outgoing = False
         msg.save()
 
-        message_received.send(sender=self, message=msg)
+        #message_received.send(sender=self, message=msg)
 
         return msg
 
@@ -416,11 +416,13 @@ class Mailbox(models.Model):
     def get_new_mail(self, condition=None):
         """Connect to this transport and fetch new messages."""
         new_mail = []
+        msg_list = []
         connection = self.get_connection()
         if not connection:
             return
         for message in connection.get_message(condition):
             msg = self.process_incoming_message(message)
+            msg_list.append(message)
             if not msg is None:
                 yield msg
         self.last_polling = now()
@@ -428,6 +430,14 @@ class Mailbox(models.Model):
             self.save(update_fields=['last_polling'])
         else:
             self.save()
+
+        for msg_ in msg_list:
+            if msg_ is not None:
+                msg_signal = self._process_message(msg_)
+                message_received.send(sender=self, message=msg_signal)
+
+
+
 
     def __str__(self):
         return self.name
